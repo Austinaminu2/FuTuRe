@@ -50,13 +50,13 @@ variable "frontend_bucket_name" {
 variable "backend_cpu" {
   description = "CPU units for the backend Fargate task (1 vCPU = 1024)."
   type        = number
-  default     = 512
+  default     = 1024
 }
 
 variable "backend_memory" {
-  description = "Memory in MiB for the backend Fargate task."
+  description = "Memory in MiB for the backend Fargate task. Ledger catch-up and event store rehydration peak at ~1.1-1.3 GB of heap, so anything below 2048 risks OOM kills (exit 137) during startup. The V8 old-space limit is derived from this value (see infra/ecs.tf)."
   type        = number
-  default     = 1024
+  default     = 2048
 }
 
 variable "backend_desired_count" {
@@ -119,9 +119,14 @@ variable "redis_node_type" {
 }
 
 variable "redis_num_cache_nodes" {
-  description = "Number of cache clusters (primary + replicas) in the Redis replication group. Must be >= 2 for Multi-AZ automatic failover."
+  description = "Number of cache clusters (primary + replicas) in the Redis replication group. Multi-AZ automatic failover is enabled automatically when this is >= 2 (see infra/elasticache.tf)."
   type        = number
-  default     = 1
+  default     = 2
+
+  validation {
+    condition     = var.redis_num_cache_nodes >= 1 && var.redis_num_cache_nodes <= 6
+    error_message = "redis_num_cache_nodes must be between 1 and 6."
+  }
 }
   default     = 2
 }

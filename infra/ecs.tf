@@ -97,6 +97,14 @@ resource "aws_cloudwatch_log_group" "backend" {
 }
 
 # ── ECS Task Definition ───────────────────────────────────────────────────────
+#
+# Cap the V8 old-space heap at 75% of the task memory (1536 MiB for the
+# default 2048 MiB task) so GC kicks in well before the Fargate hard limit,
+# leaving headroom for buffers, native allocations and the rest of the RSS.
+
+locals {
+  backend_max_old_space_mb = floor(var.backend_memory * 0.75)
+}
 
 resource "aws_ecs_task_definition" "backend" {
   family                   = "${local.name_prefix}-backend"
@@ -135,6 +143,7 @@ resource "aws_ecs_task_definition" "backend" {
       { name = "REDIS_HOST",      value = aws_elasticache_replication_group.redis.primary_endpoint_address },
       { name = "REDIS_PORT",      value = tostring(aws_elasticache_replication_group.redis.port) },
       { name = "REDIS_TLS",       value = "true" },
+      { name = "NODE_OPTIONS",    value = "--max-old-space-size=${local.backend_max_old_space_mb}" },
     ]
 
     secrets = [
